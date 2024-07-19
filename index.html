@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agendamento de Pedidos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .form-group input, .form-group select {
+            width: calc(100% - 16px);
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 12px 20px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+
+        button.agendar {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        button.pesquisar {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        button.reagendar {
+            background-color: #FF9800;
+            color: white;
+        }
+
+        button.baixar {
+            background-color: #9C27B0;
+            color: white;
+        }
+
+        button.excluir {
+            background-color: #F44336;
+            color: white;
+        }
+
+        button.editar {
+            background-color: #FFEB3B;
+            color: #333;
+        }
+
+        button.limpar {
+            background-color: #607D8B;
+            color: white;
+        }
+
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+        }
+
+        .recebido {
+            background-color: lightgreen;
+        }
+    </style>
+</head>
+<body>
+    <h1>Agendamento de Pedidos</h1>
+    <div class="form-group">
+        <label for="fornecedor">Fornecedor</label>
+        <input type="text" id="fornecedor">
+    </div>
+    <div class="form-group">
+        <label for="produtos">Produtos</label>
+        <input type="text" id="produtos">
+    </div>
+    <div class="form-group">
+        <label for="dataSolicitacao">Data da Solicitação</label>
+        <input type="text" id="dataSolicitacao" placeholder="dd/mm/yyyy">
+    </div>
+    <div class="form-group">
+        <label for="dataAgendamento">Data do Agendamento</label>
+        <input type="text" id="dataAgendamento" placeholder="dd/mm/yyyy">
+    </div>
+    <div class="form-group">
+        <label for="numeroPedido">Número do Pedido</label>
+        <input type="text" id="numeroPedido">
+    </div>
+    <div class="form-group">
+        <label for="senha">Senha</label>
+        <input type="password" id="senha">
+    </div>
+    <div class="form-group">
+        <label for="filtroStatus">Filtrar por Status</label>
+        <select id="filtroStatus">
+            <option value="todos">Todos</option>
+            <option value="agendado">Agendado</option>
+            <option value="recebido">Recebido</option>
+        </select>
+    </div>
+    <button class="agendar" onclick="agendarPedido()">Agendar</button>
+    <button class="pesquisar" onclick="pesquisarPedidos()">Pesquisar</button>
+    <button class="reagendar" onclick="reagendarPedido()">Reagendar</button>
+    <button class="baixar" onclick="baixarPedido()">Baixar</button>
+    <button class="excluir" onclick="excluirPedido()">Excluir</button>
+    <button class="editar" onclick="editarPedido()">Editar</button>
+    <button class="limpar" onclick="limpar()">Limpar</button>
+
+    <div class="results" id="results"></div>
+
+    <script>
+        const PASSWORD = "ADFORPAR";
+
+        function agendarPedido() {
+            const fornecedor = document.getElementById('fornecedor').value;
+            const produtos = document.getElementById('produtos').value;
+            const dataSolicitacao = formatarData(document.getElementById('dataSolicitacao').value);
+            const dataAgendamento = formatarData(document.getElementById('dataAgendamento').value);
+            const numeroPedido = document.getElementById('numeroPedido').value;
+            const senha = document.getElementById('senha').value;
+
+            // Validar se os campos estão preenchidos corretamente
+            if (!validarCampos(numeroPedido, dataSolicitacao, dataAgendamento)) {
+                return;
+            }
+
+            if (senha !== PASSWORD) {
+                alert('Senha incorreta. SOLICITE AO CONTROLE DE ESTOQUE O CADASTRO OU REAGENDAMENTO DO PEDIDO.');
+                return;
+            }
+
+            const pedido = {
+                fornecedor,
+                produtos,
+                dataSolicitacao,
+                dataAgendamento,
+                numeroPedido,
+                status: 'agendado'
+            };
+
+            let pedidos = JSON.parse(localStorage.getItem('pedidos')) || [];
+
+            // Excluir registros existentes com o mesmo número de pedido e datas
+            pedidos = pedidos.filter(pedido => !(pedido.numeroPedido === numeroPedido && pedido.dataSolicitacao === dataSolicitacao && pedido.dataAgendamento === dataAgendamento));
+
+            pedidos.push(pedido);
+            localStorage.setItem('pedidos', JSON.stringify(pedidos));
+
+            alert('Pedido agendado com sucesso!');
+            limparCampos();
+        }
+
+        function formatarData(data) {
+            const partes = data.split('/');
+            if (partes.length === 3) {
+                return partes[0].padStart(2, '0') + '/' + partes[1].padStart(2, '0') + '/' + partes[2];
+            } else {
+                return data; // retorna como está se não estiver no formato esperado
+            }
+        }
+
+        function validarCampos(numeroPedido, dataSolicitacao, dataAgendamento) {
+            const numeroPedidoValido = /^[0-9]+$/.test(numeroPedido);
+            if (!numeroPedidoValido) {
+                alert('Número do pedido deve conter apenas números.');
+                return false;
+            }
+
+            if (dataSolicitacao === '' || dataAgendamento === '') {
+                alert('Data da solicitação e data do agendamento não podem estar em branco.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function limparCampos() {
+            document.getElementById('fornecedor').value = '';
+            document.getElementById('produtos').value = '';
+            document.getElementById('dataSolicitacao').value = '';
+            document.getElementById('dataAgendamento').value = '';
+            document.getElementById('numeroPedido').value = '';
+            document.getElementById('senha').value = '';
+            document.getElementById('filtroStatus').value = 'todos';
+        }
+
+        function pesquisarPedidos() {
+            let pedidos = JSON.parse(localStorage.getItem('pedidos')) || [];
+            const filtroStatus = document.getElementById('filtroStatus').value;
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+
+            // Excluir pedidos com campos undefined
+            pedidos = pedidos.filter(pedido => {
+                return pedido.numeroPedido !== undefined &&
+                       pedido.dataSolicitacao !== undefined &&
+                       pedido.dataAgendamento !== undefined;
+            });
+
+            if (pedidos.length === 0) {
+                resultsDiv.innerHTML = '<p>Nenhum pedido encontrado.</p>';
+                return;
+            }
+
+            let table = `
+                <table>
+                    <tr>
+                        <th>Fornecedor</th>
+                        <th>Produtos</th>
+                        <th>Data da Solicitação</th>
+                        <th>Data do Agendamento</th>
+                        <th>Número do Pedido</th>
+                        <th>Status</th>
+                    </tr>
+            `;
+
+            pedidos.forEach(pedido => {
+                if (filtroStatus === 'todos' || pedido.status === filtroStatus) {
+                    const statusClass = pedido.status === 'recebido' ? 'recebido' : '';
+                    table += `
+                        <tr class="${statusClass}">
+                            <td>${pedido.fornecedor}</td>
+                            <td>${pedido.produtos}</td>
+                            <td>${pedido.dataSolicitacao}</td>
+                            <td>${pedido.dataAgendamento}</td>
+                            <td>${pedido.numeroPedido}</td>
+                            <td>${pedido.status}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            table += `</table>`;
+            resultsDiv.innerHTML = table;
+
+            // Resetar o filtro
+            document.getElementById('filtroStatus').value = 'todos';
+        }
+
+        function reagendarPedido() {
+            const senha = document.getElementById('senha').value;
+
+            if (senha !== PASSWORD) {
+                alert('Senha incorreta. SOLICITE AO CONTROLE DE ESTOQUE O CADASTRO OU REAGENDAMENTO DO PEDIDO.');
+                return;
+            }
+
+            const numeroPedido = prompt('Informe o número do pedido a ser reagendado:');
+            const dataAgendamento = prompt('Informe a data do agendamento atual:');
+            const novaDataAgendamento = formatarData(prompt('Informe a nova data para reagendamento:'));
+
+            let pedidos = JSON.parse(localStorage.getItem('pedidos')) || [];
+            let pedidoEncontrado = false;
+
+            pedidos = pedidos.map(pedido => {
+                if (pedido.numeroPedido === numeroPedido && pedido.dataAgendamento === dataAgendamento) {
+                    pedido.dataAgendamento = novaDataAgendamento;
+                    pedidoEncontrado = true;
+                }
+                return pedido;
+            });
+
+            if (pedidoEncontrado) {
+                localStorage.setItem('pedidos', JSON.stringify(pedidos));
+                alert('Pedido reagendado com sucesso!');
+            } else {
+                alert('Pedido não encontrado.');
+            }
+
+            limparCampos();
+        }
+
+        function baixarPedido() {
+            const senha = document.getElementById('senha').value;
+
+            if (senha !== PASSWORD) {
+                alert('Senha incorreta. SOLICITE AO CONTROLE DE ESTOQUE O CADASTRO OU REAGENDAMENTO DO PEDIDO.');
+                return;
+            }
+
+            const numeroPedido = prompt('Informe o número do pedido a ser baixado:');
+            const dataAgendamento = prompt('Informe a data do agendamento atual:');
+
+            let pedidos = JSON.parse(localStorage.getItem('pedidos')) || [];
+            let pedidoEncontrado = false;
+
+            pedidos = pedidos.map(pedido => {
+                if (pedido.numeroPedido === numeroPedido && pedido.dataAgendamento === dataAgendamento) {
+                    pedido.status = 'recebido';
+                    pedidoEncontrado = true;
+                }
+                return pedido;
+            });
+
+            if (pedidoEncontrado) {
+                localStorage.setItem('pedidos', JSON.stringify(pedidos));
+                alert('Pedido baixado com sucesso!');
+            } else {
+                alert('Pedido não encontrado.');
+            }
+
+            limparCampos();
+        }
+
+        function excluirPedido() {
+            const senha = document.getElementById('senha').value;
+
+            if (senha !== PASSWORD) {
+                alert('Senha incorreta. SOLICITE AO CONTROLE DE ESTOQUE O CADASTRO OU REAGENDAMENTO DO PEDIDO.');
+                return;
+            }
+
+            const numeroPedido = prompt('Informe o número do pedido a ser excluído:');
+            const dataAgendamento = prompt('Informe a data do agendamento atual:');
+
+            let pedidos = JSON.parse(localStorage.getItem('pedidos')) || [];
+            const pedidosFiltrados = pedidos.filter(pedido => !(pedido.numeroPedido === numeroPedido && pedido.dataAgendamento === dataAgendamento));
+
+            if (pedidos.length !== pedidosFiltrados.length) {
+                localStorage.setItem('pedidos', JSON.stringify(pedidosFiltrados));
+                alert('Pedido excluído com sucesso!');
+            } else {
+                alert('Pedido não encontrado.');
+            }
+
+            limparCampos();
+        }
+
+        function editarPedido() {
+            const senha = document.getElementById('senha').value;
+
+            if (senha !== PASSWORD) {
+                alert('Senha incorreta. SOLICITE AO CONTROLE DE ESTOQUE O CADASTRO OU REAGENDAMENTO DO PEDIDO.');
+                return;
+            }
+
+            const numeroPedido = prompt('Informe o número do pedido a ser editado:');
+            const dataAgendamento = prompt('Informe a data do agendamento atual:');
+
+            let pedidos = JSON.parse(localStorage.getItem('pedidos')) || [];
+            let pedidoParaEditar = null;
+
+            pedidos.forEach(pedido => {
+                if (pedido.numeroPedido === numeroPedido && pedido.dataAgendamento === dataAgendamento) {
+                    pedidoParaEditar = pedido;
+                }
+            });
+
+            if (!pedidoParaEditar) {
+                alert('Pedido não encontrado.');
+                return;
+            }
+
+            // Preencher campos com os dados do pedido para edição
+            document.getElementById('fornecedor').value = pedidoParaEditar.fornecedor;
+            document.getElementById('produtos').value = pedidoParaEditar.produtos;
+            document.getElementById('dataSolicitacao').value = pedidoParaEditar.dataSolicitacao;
+            document.getElementById('dataAgendamento').value = pedidoParaEditar.dataAgendamento;
+            document.getElementById('numeroPedido').value = pedidoParaEditar.numeroPedido;
+
+            // Alterar a função do botão editar para salvar as alterações
+            document.querySelector('button.editar').onclick = function() {
+                if (confirm('Deseja salvar as alterações feitas?')) {
+                    pedidoParaEditar.fornecedor = document.getElementById('fornecedor').value;
+                    pedidoParaEditar.produtos = document.getElementById('produtos').value;
+                    pedidoParaEditar.dataSolicitacao = formatarData(document.getElementById('dataSolicitacao').value);
+                    pedidoParaEditar.dataAgendamento = formatarData(document.getElementById('dataAgendamento').value);
+                    pedidoParaEditar.numeroPedido = document.getElementById('numeroPedido').value;
+
+                    pedidos = pedidos.map(pedido => {
+                        if (pedido.numeroPedido === numeroPedido && pedido.dataAgendamento === dataAgendamento) {
+                            return pedidoParaEditar;
+                        }
+                        return pedido;
+                    });
+
+                    localStorage.setItem('pedidos', JSON.stringify(pedidos));
+                    alert('Alterações salvas com sucesso!');
+                    limparCampos();
+                } else {
+                    limparCampos();
+                }
+
+                // Resetar a função do botão editar
+                document.querySelector('button.editar').onclick = editarPedido;
+            }
+        }
+
+        function limpar() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>
